@@ -1,0 +1,6 @@
+"filename","title","id_filename","id_TM","id_EDR","id_EDH","id_EDCS","id_PHI","id_URI","id_DOI","editors","ancient_place","ancient_place_ref","ancient_place_certainty","modern_place","modern_place_ref","geo_coords","latitude","longitude","date_text","date_method","date_not_before","date_not_after","material","material_ref","language","main_lang","repository","repository_role","repository_ref","inventory","inscription_text","inscription_lang","line_count","line_numbers","abbreviations","expansions","bibliography"
+"ISic0001","Funerary inscription","ISic0001","491696","","","21900531","","http://sicily.classics.ox.ac.uk/inscription/ISic0001","10.5281/zenodo.4333721","Jonathan Prag","",NA,NA,"Caltanissetta","http://sws.geonames.org/2525448","37.49025, 14.06216",37.49025,14.06216,"Imperial","#julian","0001","0300","marble","http://www.eagle-network.eu/voc/material/lod/48.html","Latin","la","Museo Archeologico Regionale Antonino Salinas","museum","http://sicily.classics.ox.ac.uk/museum/064","3501","
+                    Dis · manibus
+                    Zethi
+                    vixit · annis · VI
+                ",NA,3,"1; 2; 3","man; a","ibus; nnis","NA:NA:cl.14 no.147; corpus:CIL:10.7190; corpus:ILMusPalermo:1; NA:NA:NA; NA:NA:NA"

@@ -1,0 +1,640 @@
+---
+title: "Loading epigraphic data and basic descriptive statistics"
+author: 
+- Petra Hermankova^[Aarhus University, Denmark, https://orcid.org/0000-0002-6349-0540]
+date: "`r format(Sys.Date())`"
+output:
+  html_document:
+    theme: united
+    toc: yes
+    toc_float: true
+    number_sections: true
+    toc_depth: 3
+    df_print: paged
+---
+
+_Purpose of this script is a basic exploration of the contents of inscriptions and its attributes._
+
+# Initial setup
+
+```{r setup, echo=TRUE, message=FALSE, warning = FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+# Load necessary libraries
+
+library(tidyverse)
+library(jsonlite)
+library(tidytext)
+library(reticulate)
+
+```
+
+# 1. Working with inscriptions in R
+
+## Display the current working directory
+```{r}
+getwd()
+```
+
+## List files in the current directory
+
+```{r}
+list.files()
+```
+
+## Create a variable
+```{r}
+x <- 10
+y <- 5
+z <- "dis manibus"
+w <- "Pictos / victos / hostis / deleta / ludite / securi"
+```
+
+## Simple computation
+```{r}
+number <- x + y
+number
+```
+
+## Running Existing Code and Commenting on Code
+
+```{r}
+# This is a comment. I can write whatever I want and the computer will not see it, unless I remove the ####.
+
+# Running existing code
+numbers <- c(1,3,5,6, 89, 3878) # creates a new numeric vector
+summary(numbers) # provides basic stat overview of the vector
+```
+## Simple plot
+
+```{r}
+# Create a dataframe with variable1 and variable2
+data <- data.frame(
+  variable1 = c(1, 2, 5, 7, 8, 1, 33, 24, 234),
+  variable2 = c(12, 2, 3, 7, 1, 1, 331, 24, 24)
+)
+
+# Display the dataframe
+print(data)
+
+# Create a plot
+plot <- ggplot(data, aes(x = variable1, y = variable2)) + geom_point()
+# Display the plot
+plot
+
+```
+## Saving plots and resuts as CSV
+```{r}
+# Save the plot
+ggsave("../figures/plot_test.png", plot)
+
+# Save results to a CSV file
+write.csv(data, "../data/results_test.csv")
+```
+
+
+# 2. Loading epigraphic data in R
+
+## Load data from a CSV file
+
+dataCSV <- read.csv("../data/test_data.csv")
+
+```{r}
+dataCSV <- read.csv("../data/results_test.csv")
+```
+
+## Load data from a TSV file
+dataTSV <- read_tsv("../data/test_data.tsv")
+```{r}
+tumulusTSV <- read_tsv("../data/2025-03-10-EDCS_via_Lat_Epig-term1_tumulus-74.tsv")
+```
+
+## Load data from a JSON file
+
+dataJSON <- jsonlite::fromJSON("../data/test_data.json")
+
+```{r}
+library(jsonlite)
+tumulusJSON <- jsonlite::fromJSON("../data/2025-03-10-EDCS_via_Lat_Epig-term1_tumulus-74.json")
+tumulus <- as_tibble(tumulusJSON$data)
+```
+
+
+## Load data from a EpiDoc file - single file
+
+Used Claude.ai to generate the code [10 Mar 2025]
+```{r}
+# Install required packages if not already installed
+if (!require("xml2")) install.packages("xml2")
+if (!require("dplyr")) install.packages("dplyr")
+
+# Load necessary libraries
+library(xml2)
+library(dplyr)
+
+# Function to parse EpiDoc file to dataframe
+parse_epidoc <- function(file_path) {
+  # Read the XML file
+  xml_data <- read_xml(file_path)
+  
+  # Get the namespace - this is critical for TEI XML
+  ns <- xml_ns(xml_data)
+  
+  # Create an empty list to store our extracted data
+  data_list <- list()
+  
+  # Extract basic info with namespace handling
+  data_list$filename <- xml_text(xml_find_first(xml_data, "//d1:publicationStmt/d1:idno[@type='filename']", ns))
+  data_list$title <- xml_text(xml_find_first(xml_data, "//d1:titleStmt/d1:title", ns))
+  
+  # Extract identifiers
+  id_types <- c("filename", "TM", "EDR", "EDH", "EDCS", "PHI", "URI", "DOI")
+  for (id_type in id_types) {
+    xpath <- sprintf("//d1:publicationStmt/d1:idno[@type='%s']", id_type)
+    node <- xml_find_first(xml_data, xpath, ns)
+    if (!is.na(node)) {
+      data_list[[paste0("id_", id_type)]] <- xml_text(node)
+    }
+  }
+  
+  # Extract editors
+  editors <- xml_find_all(xml_data, "//d1:titleStmt/d1:editor", ns)
+  if (length(editors) > 0) {
+    data_list$editors <- paste(sapply(editors, xml_text), collapse = "; ")
+  }
+  
+  # Extract location info
+  origPlace <- xml_find_first(xml_data, "//d1:origin/d1:origPlace", ns)
+  if (!is.na(origPlace)) {
+    ancient_place <- xml_find_first(origPlace, "./d1:placeName[@type='ancient']", ns)
+    if (!is.na(ancient_place)) {
+      data_list$ancient_place <- xml_text(ancient_place)
+      data_list$ancient_place_ref <- xml_attr(ancient_place, "ref")
+      data_list$ancient_place_certainty <- xml_attr(ancient_place, "cert")
+    }
+    
+    modern_place <- xml_find_first(origPlace, "./d1:placeName[@type='modern']", ns)
+    if (!is.na(modern_place)) {
+      data_list$modern_place <- xml_text(modern_place)
+      data_list$modern_place_ref <- xml_attr(modern_place, "ref")
+    }
+    
+    geo <- xml_find_first(origPlace, "./d1:geo", ns)
+    if (!is.na(geo)) {
+      coords <- xml_text(geo)
+      data_list$geo_coords <- coords
+      
+      # Parse coordinates if they're in the "lat, long" format
+      coords_split <- strsplit(coords, ",")[[1]]
+      if (length(coords_split) == 2) {
+        data_list$latitude <- as.numeric(trimws(coords_split[1]))
+        data_list$longitude <- as.numeric(trimws(coords_split[2]))
+      }
+    }
+  }
+  
+  # Extract dating info
+  date_node <- xml_find_first(xml_data, "//d1:origin/d1:origDate", ns)
+  if (!is.na(date_node)) {
+    data_list$date_text <- xml_text(date_node)
+    data_list$date_method <- xml_attr(date_node, "datingMethod")
+    data_list$date_not_before <- xml_attr(date_node, "notBefore-custom")
+    data_list$date_not_after <- xml_attr(date_node, "notAfter-custom")
+  }
+  
+  # Extract material info
+  material_node <- xml_find_first(xml_data, "//d1:support/d1:material", ns)
+  if (!is.na(material_node)) {
+    data_list$material <- xml_text(material_node)
+    data_list$material_ref <- xml_attr(material_node, "ref")
+  }
+  
+  # Extract language info
+  lang_node <- xml_find_first(xml_data, "//d1:msContents/d1:textLang", ns)
+  if (!is.na(lang_node)) {
+    data_list$language <- xml_text(lang_node)
+    data_list$main_lang <- xml_attr(lang_node, "mainLang")
+  }
+  
+  # Extract repository/museum info
+  repository_node <- xml_find_first(xml_data, "//d1:repository", ns)
+  if (!is.na(repository_node)) {
+    data_list$repository <- xml_text(repository_node)
+    data_list$repository_role <- xml_attr(repository_node, "role")
+    data_list$repository_ref <- xml_attr(repository_node, "ref")
+  }
+  
+  # Extract inventory number
+  inventory_node <- xml_find_first(xml_data, "//d1:idno[@type='inventory']", ns)
+  if (!is.na(inventory_node)) {
+    data_list$inventory <- xml_text(inventory_node)
+  }
+  
+  # Extract inscription text
+  ab_node <- xml_find_first(xml_data, "//d1:div[@type='edition']/d1:ab", ns)
+  if (!is.na(ab_node)) {
+    data_list$inscription_text <- xml_text(ab_node)
+    # Get the language of the inscription text
+    data_list$inscription_lang <- xml_attr(xml_find_first(xml_data, "//d1:div[@type='edition']", ns), "xml:lang")
+  }
+  
+  # Extract named entities
+  names <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:name", ns)
+  if (length(names) > 0) {
+    data_list$named_entities <- paste(sapply(names, xml_text), collapse = "; ")
+  }
+  
+  # Extract line breaks information
+  lb_nodes <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:lb", ns)
+  if (length(lb_nodes) > 0) {
+    line_numbers <- xml_attr(lb_nodes, "n")
+    data_list$line_count <- length(lb_nodes)
+    data_list$line_numbers <- paste(line_numbers, collapse = "; ")
+  }
+  
+  # Extract abbreviations and their expansions
+  abbr_nodes <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:abbr", ns)
+  if (length(abbr_nodes) > 0) {
+    abbreviations <- sapply(abbr_nodes, xml_text)
+    data_list$abbreviations <- paste(abbreviations, collapse = "; ")
+  }
+  
+  ex_nodes <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:ex", ns)
+  if (length(ex_nodes) > 0) {
+    expansions <- sapply(ex_nodes, xml_text)
+    data_list$expansions <- paste(expansions, collapse = "; ")
+  }
+  
+  # Extract gaps and unclear text
+  gap_nodes <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:gap", ns)
+  if (length(gap_nodes) > 0) {
+    gap_info <- c()
+    for (node in gap_nodes) {
+      reason <- xml_attr(node, "reason")
+      extent <- xml_attr(node, "extent")
+      unit <- xml_attr(node, "unit")
+      gap_info <- c(gap_info, paste(reason, extent, unit, sep=":"))
+    }
+    data_list$gaps <- paste(gap_info, collapse = "; ")
+  }
+  
+  unclear_nodes <- xml_find_all(xml_data, "//d1:div[@type='edition']//d1:unclear", ns)
+  if (length(unclear_nodes) > 0) {
+    unclear_text <- sapply(unclear_nodes, xml_text)
+    data_list$unclear_text <- paste(unclear_text, collapse = "; ")
+  }
+  
+  # Extract bibliography references
+  bibl_nodes <- xml_find_all(xml_data, "//d1:div[@type='bibliography']//d1:bibl", ns)
+  if (length(bibl_nodes) > 0) {
+    bibl_info <- c()
+    for (node in bibl_nodes) {
+      bibl_type <- xml_attr(node, "type")
+      bibl_n <- xml_attr(node, "n")
+      cited_range <- xml_text(xml_find_first(node, ".//d1:citedRange", ns))
+      bibl_info <- c(bibl_info, paste(c(bibl_type, bibl_n, cited_range), collapse=":"))
+    }
+    data_list$bibliography <- paste(bibl_info, collapse = "; ")
+  }
+  
+  # Convert list to dataframe, handling NULLs
+  df <- as.data.frame(lapply(data_list, function(x) if(is.null(x)) NA else x), stringsAsFactors = FALSE)
+  return(as_tibble(df))
+}
+
+# Process the file
+file_path <- "../data/Epidoc/ISic0001.xml"  # Adjust this to your file path
+inscription_df <- parse_epidoc(file_path)
+
+# Print results
+print(inscription_df)
+
+# To show all columns in a readable format:
+for (col in names(inscription_df)) {
+  cat(paste0(col, ": ", inscription_df[[col]], "\n"))
+}
+
+# Save to CSV if needed
+ write.csv(inscription_df, "../data/Epidoc_inscription_data.csv", row.names = FALSE)
+
+```
+
+## Load data from a EpiDoc file - multiple files
+```{r}
+# Install required packages if not already installed
+if (!require("xml2")) install.packages("xml2")
+if (!require("dplyr")) install.packages("dplyr")
+
+# Load necessary libraries
+library(xml2)
+library(dplyr)
+
+# Enhanced parse_epidoc function with better handling of structural differences
+parse_epidoc <- function(file_path) {
+  # Read the XML file
+  xml_data <- read_xml(file_path)
+  
+  # Get the namespace - this is critical for TEI XML
+  ns <- xml_ns(xml_data)
+  
+  # Create an empty list to store our extracted data
+  data_list <- list()
+  
+  # Always store the filename regardless of structure
+  data_list$filename <- basename(file_path)
+  
+  # Function to safely extract text from XML nodes
+  safe_xml_text <- function(xpath, default_value = NA) {
+    node <- xml_find_first(xml_data, xpath, ns)
+    if (!is.na(node)) {
+      return(xml_text(node))
+    } else {
+      return(default_value)
+    }
+  }
+  
+  # Function to safely extract attribute from XML nodes
+  safe_xml_attr <- function(xpath, attr_name, default_value = NA) {
+    node <- xml_find_first(xml_data, xpath, ns)
+    if (!is.na(node)) {
+      attr_value <- xml_attr(node, attr_name)
+      if (!is.na(attr_value)) {
+        return(attr_value)
+      }
+    }
+    return(default_value)
+  }
+  
+  # Try multiple possible XPaths for common elements
+  # For example, title might be in different locations
+  title_xpaths <- c(
+    "//d1:titleStmt/d1:title",
+    "//tei:titleStmt/tei:title", 
+    "//TEI:titleStmt/TEI:title",
+    "//titleStmt/title"
+  )
+  
+  for (xpath in title_xpaths) {
+    tryCatch({
+      value <- safe_xml_text(xpath)
+      if (!is.na(value)) {
+        data_list$title <- value
+        break
+      }
+    }, error = function(e) {
+      # Ignore errors and try next xpath
+    })
+  }
+  
+  # Extract identifiers - try different possible locations and attributes
+  id_types <- c("filename", "TM", "EDR", "EDH", "EDCS", "PHI", "URI", "DOI")
+  id_xpaths <- c(
+    "//d1:publicationStmt/d1:idno[@type='%s']",
+    "//tei:publicationStmt/tei:idno[@type='%s']",
+    "//publicationStmt/idno[@type='%s']"
+  )
+  
+  for (id_type in id_types) {
+    for (xpath_template in id_xpaths) {
+      xpath <- sprintf(xpath_template, id_type)
+      tryCatch({
+        value <- safe_xml_text(xpath)
+        if (!is.na(value)) {
+          data_list[[paste0("id_", id_type)]] <- value
+          break
+        }
+      }, error = function(e) {
+        # Ignore errors and try next xpath
+      })
+    }
+  }
+  
+  # Similar approach for other elements...
+  # [Add similar code blocks for other data you're extracting]
+  
+  # Attempt to extract inscription text from various possible locations
+  inscription_xpaths <- c(
+    "//d1:div[@type='edition']/d1:ab",
+    "//tei:div[@type='edition']/tei:ab",
+    "//div[@type='edition']/ab",
+    "//d1:body//d1:div[@type='edition']",
+    "//tei:body//tei:div[@type='edition']"
+  )
+  
+  for (xpath in inscription_xpaths) {
+    tryCatch({
+      value <- safe_xml_text(xpath)
+      if (!is.na(value)) {
+        data_list$inscription_text <- value
+        break
+      }
+    }, error = function(e) {
+      # Ignore errors and try next xpath
+    })
+  }
+  
+  # Convert list to dataframe, handling NULLs
+  df <- as.data.frame(lapply(data_list, function(x) if(is.null(x)) NA else x), stringsAsFactors = FALSE)
+  return(as_tibble(df))
+}
+
+# Modified process function to handle structural variations
+process_multiple_epidoc_files <- function(directory_path, pattern = "*.xml") {
+  # Get list of XML files in the directory
+  file_paths <- list.files(path = directory_path, pattern = pattern, full.names = TRUE)
+  
+  # Check if any files were found
+  if (length(file_paths) == 0) {
+    stop("No XML files found in the specified directory.")
+  }
+  
+  # Initialize an empty list to store data frames
+  all_inscriptions <- list()
+  success_count <- 0
+  failure_count <- 0
+  
+  # Process each file
+  for (i in seq_along(file_paths)) {
+    file_path <- file_paths[i]
+    file_name <- basename(file_path)
+    cat(sprintf("Processing file %d of %d: %s\n", i, length(file_paths), file_name))
+    
+    # Try to parse the file and handle errors gracefully
+    result <- tryCatch({
+      df <- parse_epidoc(file_path)
+      all_inscriptions[[length(all_inscriptions) + 1]] <- df
+      success_count <- success_count + 1
+      "success"
+    }, error = function(e) {
+      cat(sprintf("  - Error processing %s: %s\n", file_name, e$message))
+      failure_count <- failure_count + 1
+      return("failure")
+    })
+  }
+  
+  # Combine all data frames into one
+  cat(sprintf("\nProcessing complete: %d succeeded, %d failed\n", success_count, failure_count))
+  
+  if (length(all_inscriptions) > 0) {
+    # Use bind_rows with .id parameter to track which file each row came from
+    combined_df <- bind_rows(all_inscriptions)
+    
+    # Count unique values for each column to understand structural variations
+    cat("\nColumn summary (number of unique values):\n")
+    for (col in names(combined_df)) {
+      if (!all(is.na(combined_df[[col]]))) {
+        unique_count <- length(unique(combined_df[[col]]))
+        missing_count <- sum(is.na(combined_df[[col]]))
+        cat(sprintf("  %s: %d unique values, %d missing values (%.1f%%)\n", 
+                    col, unique_count, missing_count, 
+                    missing_count/nrow(combined_df)*100))
+      }
+    }
+    
+    return(combined_df)
+  } else {
+    stop("No files were successfully processed.")
+  }
+}
+
+# Function to process multiple files
+process_multiple_epidoc_files <- function(directory_path, pattern = "*.xml") {
+  # Get list of XML files in the directory
+  file_paths <- list.files(path = directory_path, pattern = pattern, full.names = TRUE)
+  
+  # Check if any files were found
+  if (length(file_paths) == 0) {
+    stop("No XML files found in the specified directory.")
+  }
+  
+  # Initialize an empty list to store data frames
+  all_inscriptions <- list()
+  
+  # Process each file
+  for (i in seq_along(file_paths)) {
+    file_path <- file_paths[i]
+    cat(sprintf("Processing file %d of %d: %s\n", i, length(file_paths), basename(file_path)))
+    
+    # Try to parse the file and handle errors gracefully
+    tryCatch({
+      df <- parse_epidoc(file_path)
+      all_inscriptions[[length(all_inscriptions) + 1]] <- df
+    }, error = function(e) {
+      cat(sprintf("Error processing file %s: %s\n", basename(file_path), e$message))
+    })
+  }
+  
+  # Combine all data frames into one
+  if (length(all_inscriptions) > 0) {
+    # Use bind_rows to handle different column sets
+    combined_df <- bind_rows(all_inscriptions)
+    return(combined_df)
+  } else {
+    stop("No files were successfully processed.")
+  }
+}
+
+# Use the function - specify your directory containing XML files
+directory_path <- "../data/Epidoc/"  # Adjust this to your directory path
+file.exists(directory_path) 
+list.files(directory_path, pattern = "*.xml")
+inscriptions_df <- process_multiple_epidoc_files(directory_path)
+
+# Print summary
+cat(sprintf("Successfully processed %d inscription files.\n", nrow(inscriptions_df)))
+
+# Save to CSV
+write.csv(inscriptions_df, "../data/All_Epidoc_inscriptions.csv", row.names = FALSE)
+```
+
+
+# 3. Simple descriptive statistics
+
+```{r}
+tumulus
+```
+
+```{r}
+names(tumulus)
+```
+
+
+## How many inscriptions on stone
+```{r}
+# what material is used
+tumulus %>% 
+  count(material) 
+
+```
+
+```{r}
+# filter only stone inscriptions
+tumulus %>% 
+  filter(material == "lapis")
+```
+
+```{r}
+# create a new variable
+
+stone<- tumulus %>% 
+  filter(material == "lapis")
+```
+
+
+
+## How many funerary inscriptions
+
+```{r}
+tumulus %>% 
+  count(status)
+
+```
+
+```{r}
+tumulus %>% 
+  filter(status == str_subset(status, "tituli sepulcrales")) # regular expressions
+```
+
+## Province 
+```{r}
+tumulus %>% 
+  count(province)
+```
+
+## Map
+
+```{r}
+library(raster)
+library(sf)
+
+# Convert to numbers and eliminate missing values in one step
+tumulus <- tumulus %>%
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude)
+  ) %>%
+  filter(!is.na(latitude) & !is.na(longitude))
+
+tumulus_map<- leaflet(width="100%") %>%
+ #addProviderTiles("Stamen.Watercolor") #%>% # Add CartoDB map tiles
+ #addProviderTiles("Stamen.TerrainBackground")%>% # Add CartoDB map tiles
+ #addProviderTiles("Esri.WorldTopoMap", group = "Topo") %>%
+ addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
+  setView( lng = 15.9239625, lat = 31.9515694, zoom = 4 ) %>%
+  setMaxBounds(lat1=43.633977, lng1 =-11.227926 , lat2=35.133882 , lng2=50.882336) %>%
+  #addPolylines(data = roads, color = "purple", weight = 1, opacity = 0.7) %>% 
+ addCircles(lng = tumulus$longitude, 
+             lat = tumulus$latitude, opacity = 0.9, radius = 2, fill = TRUE, color = "red" , fillColor = "red",
+             ) %>% 
+addLegend(position = "bottomright",
+  colors = c("Red"),
+  labels = c("Inscriptions"), opacity = 1,
+  title = "Inscriptions that mention 'tumulus'" 
+) %>% 
+  addScaleBar(position="bottomleft")
+
+tumulus_map
+
+```
+
