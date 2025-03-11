@@ -26,7 +26,13 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 library(tidyverse)
 library(jsonlite)
 library(tidytext)
-library(reticulate)
+library(xml2)
+library(dplyr)
+library(leaflet)
+library(raster)
+library(sf)
+library(leaflet)
+library(ggplot2)
 
 ```
 
@@ -116,7 +122,7 @@ tumulusTSV <- read_tsv("../data/2025-03-10-EDCS_via_Lat_Epig-term1_tumulus-74.ts
 dataJSON <- jsonlite::fromJSON("../data/test_data.json")
 
 ```{r}
-library(jsonlite)
+
 tumulusJSON <- jsonlite::fromJSON("../data/2025-03-10-EDCS_via_Lat_Epig-term1_tumulus-74.json")
 tumulus <- as_tibble(tumulusJSON$data)
 ```
@@ -624,10 +630,6 @@ tumulus %>%
 ## Map
 
 ```{r}
-library(raster)
-library(sf)
-library(leaflet)
-
 # Convert to numbers and eliminate missing values in one step
 tumulus <- tumulus %>%
   mutate(
@@ -733,7 +735,7 @@ dated %>%
 
 
 ```{r}
-library(ggplot2)
+# plotting the dating interval
 
 dated %>% ggplot(aes(x = as.numeric(date_not_before), y = `EDCS-ID`, colour = date_not_before)) + geom_segment(aes(xend = as.numeric(dated$date_not_after), yend = dated$`EDCS-ID`), colour = "black") +
   geom_point(size = 1) +
