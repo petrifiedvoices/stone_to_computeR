@@ -30,7 +30,7 @@ library(reticulate)
 
 ```
 
-# 1. Working with inscriptions in R
+# Working with inscriptions in R
 
 ## Display the current working directory
 ```{r}
@@ -84,6 +84,7 @@ plot <- ggplot(data, aes(x = variable1, y = variable2)) + geom_point()
 plot
 
 ```
+
 ## Saving plots and resuts as CSV
 ```{r}
 # Save the plot
@@ -94,7 +95,7 @@ write.csv(data, "../data/results_test.csv")
 ```
 
 
-# 2. Loading epigraphic data in R
+# Loading epigraphic data in R
 
 ## Load data from a CSV file
 
@@ -549,7 +550,7 @@ write.csv(inscriptions_df, "../data/All_Epidoc_inscriptions.csv", row.names = FA
 ```
 
 
-# 3. Simple descriptive statistics: TUMULUS example
+# Simple descriptive statistics: TUMULUS example
 
 ```{r}
 tumulus
@@ -603,7 +604,7 @@ tumulus %>%
 
 ```{r}
 tumulus %>% 
-  filter(status == str_subset(status, "tituli sepulcrales")) # regular expressions
+  filter(status %in% str_subset(status, "tituli sepulcrales")) # regular expressions
 ```
 
 
@@ -625,6 +626,7 @@ tumulus %>%
 ```{r}
 library(raster)
 library(sf)
+library(leaflet)
 
 # Convert to numbers and eliminate missing values in one step
 tumulus <- tumulus %>%
@@ -638,25 +640,23 @@ tumulus_map<- leaflet(width="100%") %>%
  #addProviderTiles("Stamen.Watercolor") #%>% # Add CartoDB map tiles
  #addProviderTiles("Stamen.TerrainBackground")%>% # Add CartoDB map tiles
  #addProviderTiles("Esri.WorldTopoMap", group = "Topo") %>%
- addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
-  setView( lng = 15.9239625, lat = 31.9515694, zoom = 4 ) %>%
-  setMaxBounds(lat1=43.633977, lng1 =-11.227926 , lat2=35.133882 , lng2=50.882336) %>%
+leaflet::addProviderTiles("Esri.WorldImagery", group = "ESRI Aerial") %>%
+leaflet::setView( lng = 15.9239625, lat = 31.9515694, zoom = 4 ) %>%
+leaflet::setMaxBounds(lat1=43.633977, lng1 =-11.227926 , lat2=35.133882 , lng2=50.882336) %>%
   #addPolylines(data = roads, color = "purple", weight = 1, opacity = 0.7) %>% 
- addCircles(lng = tumulus$longitude, 
-             lat = tumulus$latitude, opacity = 0.9, radius = 2, fill = TRUE, color = "red" , fillColor = "red",
-             ) %>% 
-addLegend(position = "bottomright",
+ leaflet::addCircles(lng = tumulus$longitude, 
+             lat = tumulus$latitude, opacity = 0.9, radius = 2, fill = TRUE, color = "red" , fillColor = "red", ) %>% 
+leaflet::addLegend(position = "bottomright",
   colors = c("Red"),
   labels = c("Inscriptions"), opacity = 1,
-  title = "Inscriptions that mention 'tumulus'" 
-) %>% 
-  addScaleBar(position="bottomleft")
+  title = "Inscriptions that mention 'tumulus'") %>% 
+leaflet::addScaleBar(position="bottomleft")
 
 tumulus_map
 
 ```
 
-# 4. Home assignment
+# Home assignment
 
 ## Typological composition
 
@@ -721,7 +721,7 @@ tumulus_insctype %>%
 
 ```{r}
 dated <- tumulus %>% 
-  select(`EDCS-ID`, date_not_before,date_not_after) 
+  dplyr::select(`EDCS-ID`, date_not_before, date_not_after) 
 dated
 ```
 
@@ -731,15 +731,6 @@ dated %>%
   filter(date_not_before != "")
 ```
 
-```{r}
-#install.packages("ggalt") #uncomment and run if the package is not installed on your computer
-library(ggalt)
-
-dated %>% ggplot( aes(x = date_not_before, xend = date_not_after, y = `EDCS-ID`)) +
-  geom_dumbbell(colour = "#a3c4dc",colour_xend = "#0e668b", size = 1 ) +
-  
-
-```
 
 ```{r}
 library(ggplot2)
