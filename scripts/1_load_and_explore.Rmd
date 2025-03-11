@@ -549,11 +549,19 @@ write.csv(inscriptions_df, "../data/All_Epidoc_inscriptions.csv", row.names = FA
 ```
 
 
-# 3. Simple descriptive statistics
+# 3. Simple descriptive statistics: TUMULUS example
 
 ```{r}
 tumulus
 ```
+
+## How many inscriptions
+
+```{r}
+nrow(tumulus)
+```
+
+## What are the names of attributes (columns)
 
 ```{r}
 names(tumulus)
@@ -581,7 +589,9 @@ stone<- tumulus %>%
   filter(material == "lapis")
 ```
 
-
+```{r}
+nrow(stone)
+```
 
 ## How many funerary inscriptions
 
@@ -596,10 +606,18 @@ tumulus %>%
   filter(status == str_subset(status, "tituli sepulcrales")) # regular expressions
 ```
 
-## Province 
+
+## Province distribution
 ```{r}
 tumulus %>% 
   count(province)
+```
+
+## Unique findspots
+
+```{r}
+tumulus %>% 
+  count(place, sort = TRUE)
 ```
 
 ## Map
@@ -636,5 +654,110 @@ addLegend(position = "bottomright",
 
 tumulus_map
 
+```
+
+# 4. Home assignment
+
+## Typological composition
+
+The solution works for EDCS dataset only - separates types of inscriptions from other categories in the status attribute.
+
+### Preprocessing of the LatEpig generated dataset
+
+### Type of inscription 
+
+First we need to split the categorisation of the `status` attribute:
+
+Division the status keywords into their own attributes, base on their purpose:
+1. inscription type
+2. notation of a societal status of a person on the inscription
+3. details about process of inscribing, execution
+
+```{r}
+inscription_type_list <- c("tituli sepulcrales", "tituli fabricationis", "inscriptiones christianae", "tituli sacri", "tituli possessionis", "tituli operum", "miliaria", "tituli honorarii", "signacula", "diplomata militaria", "leges", "defixiones", "termini", "reges", "signacula medicorum", "senatus consulta")
+
+inscribing_process_list <- c("sigilla impressa", "litterae erasae", "litterae in litura", "tesserae nummulariae")
+
+status_notation_list<- c("viri", "tria nomina", "mulieres", "nomen singulare", "liberti/libertae", "milites", "Augusti/Augustae", "ordo senatorius", "servi/servae", "officium/professio", "ordo decurionum", "sacerdotes pagani", "praenomen et nomen", "ordo equester", "seviri Augustales", "sacerdotes christiani")
+
+language_form_list<- c("carmina")
+```
+
+
+```{r}
+# processing the status labels
+tumulus <- tumulus %>% 
+  mutate(inscr_type = str_extract_all(pattern = paste(inscription_type_list, collapse="|"), string = tumulus$status)) %>% 
+  mutate(status_notation = str_extract_all(pattern = paste(status_notation_list, collapse="|"), string = tumulus$status)) %>% 
+  mutate(inscr_process = str_extract_all(pattern = paste(inscribing_process_list, collapse="|"), string = tumulus$status)) %>% 
+  mutate(inscr_lang = str_extract_all(pattern = paste(language_form_list, collapse="|"), string = tumulus$status))
+```
+
+### Convert character (0) to NA
+
+```{r}
+tumulus$inscr_type <- lapply(tumulus$inscr_type, function(x) if(identical(x, character(0))) NA_character_ else x)
+tumulus$status_notation <- lapply(tumulus$status_notation, function(x) if(identical(x, character(0))) NA_character_ else x)
+tumulus$inscr_process <- lapply(tumulus$inscr_process, function(x) if(identical(x, character(0))) NA_character_ else x)
+tumulus$inscr_lang <- lapply(tumulus$inscr_lang, function(x) if(identical(x, character(0))) NA_character_ else x)
+```
+
+### Overview of types of inscriptions
+
+```{r}
+tumulus_insctype<- unnest_longer(tumulus, col = "inscr_type")
+```
+
+```{r}
+# number of instances and their ratio by inscription types
+
+tumulus_insctype %>% 
+  count(inscr_type, sort=T) %>% 
+  mutate(ratio = n/(sum(n)/100))
+```
+
+
+## Temporal composition - rough overview
+
+```{r}
+dated <- tumulus %>% 
+  select(`EDCS-ID`, date_not_before,date_not_after) 
+dated
+```
+
+```{r}
+# start date is not empty
+dated %>% 
+  filter(date_not_before != "")
+```
+
+```{r}
+#install.packages("ggalt") #uncomment and run if the package is not installed on your computer
+library(ggalt)
+
+dated %>% ggplot( aes(x = date_not_before, xend = date_not_after, y = `EDCS-ID`)) +
+  geom_dumbbell(colour = "#a3c4dc",colour_xend = "#0e668b", size = 1 ) +
+  
+
+```
+
+```{r}
+library(ggplot2)
+
+dated %>% ggplot(aes(x = as.numeric(date_not_before), y = `EDCS-ID`, colour = date_not_before)) + geom_segment(aes(xend = as.numeric(dated$date_not_after), yend = dated$`EDCS-ID`), colour = "black") +
+  geom_point(size = 1) +
+  geom_point(aes(x = as.numeric(dated$date_not_after)), size = 1) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Timeline", y = "Inscription EDCS ID", title = "Dating intervals of Latin inscriptions containing the term tumulus") +
+  theme(axis.text=element_text(size=6),
+        axis.title=element_text(size=12)) -> dated_intervals
+
+dated_intervals
+```
+
+```{r}
+# save as a figure
+ggsave(plot = dated_intervals, width = 12, height = 10, dpi = 300, filename = "../figures/tumulus_dating.png")
 ```
 
