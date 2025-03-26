@@ -18,8 +18,17 @@ _Purpose of this script is a basic exploration of the contents of inscriptions a
 # Initial setup
 
 ```{r setup, echo=TRUE, message=FALSE, warning = FALSE}
-
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+# Install required packages if not already installed
+if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")
+if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("tidytext", quietly = TRUE)) install.packages("tidytext")
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("tidyverse", quietly = TRUE)) install.packages("tidyverse")
+if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr")
+if (!requireNamespace("reticulate", quietly = TRUE)) install.packages("reticulate")
 
 # Load necessary libraries
 
