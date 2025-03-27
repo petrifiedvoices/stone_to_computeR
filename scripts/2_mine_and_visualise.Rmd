@@ -25,7 +25,6 @@ if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")
 if (!requireNamespace("dplyr", quietly = TRUE)) install.packages("dplyr")
 if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 if (!requireNamespace("tidytext", quietly = TRUE)) install.packages("tidytext")
-if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
 if (!requireNamespace("tidyverse", quietly = TRUE)) install.packages("tidyverse")
 if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr")
 if (!requireNamespace("reticulate", quietly = TRUE)) install.packages("reticulate")
@@ -291,7 +290,7 @@ pd.options.display.max_columns = 1000  # to see all columns
 
 
 ```{python}
-# How many inscriptions have both dates?
+# How many inscriptions have both dates? filtering only those records that have both dates
 sepul_date = r.sepulcrales_date[(r.sepulcrales_date["date_not_before"].notnull()) | (r.sepulcrales_date["date_not_after"].notnull())]
 len(sepul_date)
 ```
@@ -303,12 +302,13 @@ sepul_date["random_dates"] = sepul_date.apply(lambda row: tempun.model_date(
 ```
 
 ```{python}
-# Count random dates in temporal timeblocks in a specified time range (from 200 BC to 600 AD, temporal blocks by 25 years)
+# Count random dates in temporal timeblocks in a specified time range (from 200 BC to 600 AD, temporal blocks by 25 years, you can ADJUST to better fit your time-span)
 sepul_complete_simulations = tempun.timeblocks_from_randoms(
     sepul_date["random_dates"], [-200, 600, 25])
 ```
 
 ```{python}
+# display how many inscriptions per block
 len(sepul_complete_simulations)
 ```
 

@@ -32,6 +32,8 @@ if (!requireNamespace("sf", quietly = TRUE)) install.packages("sf")
 if (!requireNamespace("xml2", quietly = TRUE)) install.packages("xml2")
 if (!requireNamespace("leaflet", quietly = TRUE)) install.packages("leaflet")
 if (!requireNamespace("htmlwidgets", quietly = TRUE)) install.packages("htmlwidgets")
+if (!requireNamespace("sfarrow", quietly = TRUE)) install.packages("sfarrow")
+if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
 
 # Load necessary libraries
 library(tidyverse)
@@ -44,6 +46,8 @@ library(raster)
 library(sf)
 library(ggplot2)
 library(htmlwidgets)
+library(sfarrow)
+library(arrow)
 
 ```
 
@@ -131,6 +135,8 @@ write.csv(data, "../data/results_test.csv")
 
 ```{r}
 dataCSV <- read.csv("../data/results_test.csv")
+
+dataCSV2 <- read_csv("../data/results_test.csv")
 ```
 
 ## Load data from a TSV file
@@ -170,8 +176,9 @@ head(tumulus) # print the first six rows
 
 Used Claude.ai v3.7 to generate the code.
 
-- This is to demonstrate hoe complex it is to extract any data out of XML, however useful format it is for epigraphy
+- This is to demonstrate how complex it is to extract any data out of XML, however useful format it is for epigraphy
 - You need to know the structure of the XML and its tags to be able to extract any meaningful data
+
 ```{r}
 # Install required packages if not already installed
 if (!require("xml2")) install.packages("xml2")
@@ -617,10 +624,16 @@ Parquet is a different format of data.
 
 *Latin Inscriptions in Space and Time* (LIST) https://zenodo.org/records/10473706
 
-*Greek Inscriptions in Space and Time* (GIST)https://zenodo.org/records/10139110
+*Greek Inscriptions in Space and Time* (GIST) https://zenodo.org/records/10139110
 
 ```{r}
-# LIST <- st_read_parquet("../path/to/dataset.parquet") # you need to download the dataset first
+# LIST <- sfarrow::st_read_parquet("../path/to/dataset.parquet") # you need to download the dataset first
+
+# if that does not work, try
+
+# LIST <- arrow::read_parquet("../path/to/dataset.parquet")
+
+GIST <- arrow::read_parquet("../data/GIST_v1-0.parquet")
 ```
 
 
@@ -643,7 +656,7 @@ Parquet is a different format of data.
 
 # Simple descriptive statistics: TUMULUS example
 
-We will use previously loaded examples of inscritpions containing the Latin term  `tumulus`, as extracted from EDCS on 10 March 2025, using the LatEpig tool. https://github.com/mqAncientHistory/Lat-Epig
+We will use previously loaded examples of inscriptions containing the Latin term  `tumulus`, as extracted from EDCS on 10 March 2025, using the LatEpig tool. https://github.com/mqAncientHistory/Lat-Epig
 
 `Ballsun-Stanton B., Heřmánková P., Laurence R. LatEpig (version 2.0). GitHub. URL: https://github.com/mqAncientHistory/Lat-Epig/ DOI: 10.5281/zenodo.12036539`
 
@@ -688,6 +701,12 @@ Select stone inscriptions only - beware, the terminology is in Latin.
 # filter only stone inscriptions
 tumulus %>% 
   filter(material == "lapis")
+
+tumulus %>% 
+  filter(material == "aes")
+
+tumulus %>% 
+  filter(is.na(material))
 ```
 
 ```{r}
@@ -717,7 +736,11 @@ tumulus %>%
 ```{r}
 # use regular expressions within R to search only for tituli sepulcrales - funerary inscriptions
 tumulus %>% 
-  filter(status %in% str_subset(status, "tituli sepulcrales")) # regular expressions
+  filter(status %in% stringr::str_subset(status, "tituli sepulcrales")) # regular expressions
+
+
+tumulus %>% 
+  filter(status %in% stringr::str_subset(status, "nomen singulare")) # regular expressions
 ```
 
 
@@ -739,15 +762,13 @@ tumulus %>%
 ```
 
 ## Map
-Now, we will be plotting the resulst on a map. First we need to prepare the geographical data
+Now, we will be plotting the results on a map. First we need to prepare the geographical data
 
 ```{r}
 # Convert latitude and longitude to numbers and eliminate missing values in one step
 tumulus <- tumulus %>%
-  mutate(
-    latitude = as.numeric(latitude),
-    longitude = as.numeric(longitude)
-  ) %>%
+  mutate(latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude)) %>%
   filter(!is.na(latitude) & !is.na(longitude))
 ```
 
@@ -826,13 +847,13 @@ saveWidget(tumulus_map, file = "../figures/tumulus_inscriptions_map.html")
 
 ```
 
-# Home assignment
+# Weekly assignment
 
 This section is to help with your home assignment and with your project. 
 
 ## Typological composition
 
-The solution works for EDCS dataset only - as you neeed to separate types of inscriptions from other categories in the status attribute first.
+The solution works for EDCS dataset only - as you need to separate types of inscriptions from other categories in the status attribute first.
 
 ### Preprocessing of the LatEpig generated dataset
 
@@ -923,4 +944,7 @@ dated_intervals
 # save as a figure
 ggsave(plot = dated_intervals, width = 12, height = 10, dpi = 300, filename = "../figures/tumulus_dating.png")
 ```
+
+
+
 
